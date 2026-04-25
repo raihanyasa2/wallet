@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Spoof connect pppromptttt</button>
+  <button id="connect">Spoof connect promptttt</button>
   <pre id="log"></pre>
 
   <!-- Pakai bundle dari unpkg -->
@@ -25,7 +25,7 @@
       try {
         log('Initializing...');
 
-        const provider = await window.UniversalProvider.init({
+        const provider = await window.SignClient.init({
           projectId: '2f05ae7f1116030fde2d36508f472bfb',
           metadata: {
             name: CLAIMED_NAME,
