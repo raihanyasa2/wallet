@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Magic Eden Origin Spoof PoC</title>
+</head>
+<body>
+  <h1>Magic Eden Origin Spoof PoC</h1>
+  <button id="connect">Connect Wallet</button>
+  <button id="sign">Connect + Sign</button>
+  <pre id="log"></pre>
+
+  <script>
+    const log = (msg) => document.getElementById('log').textContent += msg + '\n';
+
+    // Coba akses Magic Eden provider
+    function getProvider() {
+      if (window.magicEden?.ethereum) return window.magicEden.ethereum;
+      if (window.magicEden?.solana) return window.magicEden.solana;
+      return null;
+    }
+
+    document.getElementById('connect').onclick = async () => {
+      const provider = getProvider();
+      if (!provider) {
+        log('Magic Eden provider not found!');
+        return;
+      }
+      try {
+        const accounts = await provider.request({
+          method: 'eth_requestAccounts'
+        });
+        log('Connected: ' + accounts[0]);
+        log('Origin shown in popup: ???'); // ini yang perlu dicek manual
+      } catch (e) {
+        log('Error: ' + e.message);
+      }
+    };
+
+    document.getElementById('sign').onclick = async () => {
+      const provider = getProvider();
+      if (!provider) return;
+      try {
+        const accounts = await provider.request({
+          method: 'eth_requestAccounts'
+        });
+        const msg = `0x${Buffer.from('Origin spoof test from ' + location.origin).toString('hex')}`;
+        const sig = await provider.request({
+          method: 'personal_sign',
+          params: [msg, accounts[0]]
+        });
+        log('Signature: ' + sig);
+      } catch (e) {
+        log('Error: ' + e.message);
+      }
+    };
+  </script>
+</body>
+</html>
