@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Spoof connect prompt</button>
+  <button id="connect">Ssssspoof connect prompt</button>
   <pre id="log"></pre>
 
   <script type="module">
@@ -52,7 +52,7 @@
           log('Claimed URL: ' + CLAIMED_URL);
           log('URI: ' + uri.substring(0, 50) + '...');
           log('Opening Ready Wallet...');
-          location.href = `ready://wc?uri=${encodeURIComponent(uri)}`;
+          location.href = `argentmobile://wc?uri=${encodeURIComponent(uri)}`;
         }
       } catch(e) {
         log('Error: ' + e.message);
